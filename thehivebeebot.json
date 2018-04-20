@@ -1,0 +1,95 @@
+{
+    "api": {
+        "uri": {
+            "thehive": "http://127.0.0.1:8080"
+        },
+        "credentials": {
+            "key": ""
+        }
+    },
+    "jobs": {
+        "scopes": [
+            "local",
+            "ext"
+        ]
+    },
+    "analyzers": [
+        {
+            "id": "MISP",
+            "scope": "ext",
+            "cortexId": "CORTEX-SERVER-ID",
+            "type": [
+                "file/binary",
+                "file/text",
+                "url"
+            ]
+        },
+        {
+            "id": "VirusTotal_GetReport_3_0 ",
+            "scope": "ext",
+            "cortexId": "CORTEX-SERVER-ID",
+            "type": [
+                "file/binary",
+                "file/text",
+                "url"
+            ]
+        },
+        {
+            "id": "File_Info_2_0",
+            "scope": "local",
+            "cortexId": "CORTEX-SERVER-ID",
+            "type": [
+                "file/binary",
+                "file/text"
+            ]
+        },
+        {
+            "id": "VirusTotal_Scan ",
+            "scope": "ext",
+            "cortexId": "CORTEX-SERVER-ID",
+            "type": [
+                "file/binary",
+                "file/text",
+                "url"
+            ]
+        },
+        {
+            "id": "OTXQuery ",
+            "scope": "ext",
+            "cortexId": "CORTEX-SERVER-ID",
+            "type": [
+                "file/binary",
+                "file/text"
+            ]
+        }
+    ],
+    "routing": [
+        {
+            "regex": [
+                "ELF",
+                "byte-compiled",
+                "PNG",
+                "binary"
+            ],
+            "type": [
+                "file/binary"
+            ]
+        },
+        {
+            "regex": [
+                "ASCII text"
+            ],
+            "type": [
+                "file/text"
+            ]
+        },
+        {
+            "regex": [
+                "python (\\d|\\.)+ byte-compiled"
+            ],
+            "type": [
+                "file/binary/python-compiled"
+            ]
+        }
+    ]
+}
