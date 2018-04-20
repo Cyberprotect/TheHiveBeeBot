@@ -11,7 +11,7 @@ setup(
     author='Rémi ALLAIN',
     author_email='rallain@cyberprotect.fr',
     maintainer='Rémi ALLAIN',
-    url='https://github.com/remiallain/TheHiveBeeBot',
+    url='https://github.com/Cyberprotect/TheHiveBeeBot',
     license='AGPL-V3',
     packages=['thehivebeebot'],
     classifiers=[
