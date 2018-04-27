@@ -1,0 +1,203 @@
+{
+    "api": {
+        "uri": {
+            "thehive": "http://127.0.0.1:8080"
+        },
+        "credentials": {
+            "key": ""
+        }
+    },
+    "jobs": {
+        "scopes": [
+            "local",
+            "ext"
+        ]
+    },
+    "analyzers": [
+        {
+            "id": "WOT_Lookup_1_0",
+            "scope": "ext",
+            "cortexId": "CORTEX-SERVER-ID",
+            "type": [
+                "domain",
+                "fqdn"
+            ]
+        },
+        {
+            "id": "PhishingInitiative_Lookup_2_0",
+            "scope": "ext",
+            "cortexId": "CORTEX-SERVER-ID",
+            "type": [
+                "ip",
+                "url"
+            ]
+        },
+        {
+            "id": "Onyphe_Threats_1_0",
+            "scope": "ext",
+            "cortexId": "CORTEX-SERVER-ID",
+            "type": [
+                "ip"
+            ]
+        },
+        {
+            "id": "MISP",
+            "scope": "ext",
+            "cortexId": "CORTEX-SERVER-ID",
+            "type": [
+                "domain",
+                "ip",
+                "url",
+                "fqdn",
+                "uri_path",
+                "user-agent",
+                "hash",
+                "email",
+                "mail_subject",
+                "registry",
+                "regexp",
+                "other",
+                "filename",
+                "file/binary",
+                "file/text"
+            ]
+        },
+        {
+            "id": "CuckooSandbox_File_Analysis_Inet_1_0",
+            "scope": "local",
+            "cortexId": "CORTEX-SERVER-ID",
+            "type": [
+                "file/binary",
+                "file/text"
+            ]
+        },
+        {
+            "id": "CuckooSandbox_Url_Analysis_1_0",
+            "scope": "local",
+            "cortexId": "CORTEX-SERVER-ID",
+            "type": [
+                "url"
+            ]
+        },
+        {
+            "id": "OTXQuery_2_0",
+            "scope": "ext",
+            "cortexId": "CORTEX-SERVER-ID",
+            "type": [
+                "file/binary",
+                "file/text",
+                "url",
+                "domain",
+                "hash",
+                "ip"
+            ]
+        },
+        {
+            "id": "VirusTotal_Scan_3_0",
+            "scope": "ext",
+            "cortexId": "CORTEX-SERVER-ID",
+            "type": [
+                "file/binary",
+                "file/text",
+                "url"
+            ]
+        },
+        {
+            "id": "VirusTotal_GetReport_3_0",
+            "scope": "ext",
+            "cortexId": "CORTEX-SERVER-ID",
+            "type": [
+                "file/binary",
+                "file/text",
+                "ip",
+                "hash",
+                "domain"
+            ]
+        },
+        {
+            "id": "Virusshare_2_0",
+            "scope": "local",
+            "cortexId": "CORTEX-SERVER-ID",
+            "type": [
+                "file/binary",
+                "file/text",
+                "hash"
+            ]
+        },
+        {
+            "id": "File_Info_2_0",
+            "scope": "local",
+            "cortexId": "CORTEX-SERVER-ID",
+            "type": [
+                "file/binary",
+                "file/text"
+            ]
+        },
+        {
+            "id": "HybridAnalysis_GetReport_1_0",
+            "scope": "ext",
+            "cortexId": "CORTEX-SERVER-ID",
+            "type": [
+                "file/binary",
+                "file/text",
+                "hash",
+                "filename"
+            ]
+        },
+        {
+            "id": "Yara",
+            "scope": "local",
+            "cortexId": "CORTEX-SERVER-ID",
+            "type": [
+                "file/binary",
+                "file/text"
+            ]
+        }
+    ],
+    "routing": [
+        {
+            "regex": [
+                "ELF",
+                "byte-compiled",
+                "PNG",
+                "binary",
+                "executable"
+            ],
+            "type": [
+                "file/binary"
+            ]
+        },
+        {
+            "regex": [
+                "python (\\d|\\.)+ byte-compiled"
+            ],
+            "type": [
+                "file/binary/python-compiled"
+            ]
+        },
+        {
+            "regex": [
+                "ASCII"
+            ],
+            "type": [
+                "file/text"
+            ]
+        },
+        {
+            "regex": [
+                "script"
+            ],
+            "type": [
+                "file/text/script"
+            ]
+        },
+        {
+            "regex": [
+                "Python"
+            ],
+            "type": [
+                "file/text/script/python"
+            ]
+        }
+    ]
+}

@@ -1,20 +1,35 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from __future__ import print_function
-from __future__ import unicode_literals
-from thehive4py.api import TheHiveApi
-from thehive4py.models import Case, CaseObservable, CaseTask
-import magic,time,re,requests,sys,json,os
+from __future__ import print_function, unicode_literals
+import thehive4py.api as TheHiveApi
+import thehive4py.models as TheHiveModels
+import magic
+import time
+import re
+import requests
+import sys
+import json
+import os
+
 
 class TheHiveBeeBot:
     def __init__(self, jsonfile):
+        self.output = {}
+        self.output['case'] = None
+        self.output['types'] = []
+        self.output['observables'] = []
+        self.output['jobs-launched'] = []
+        self.output['jobs-completed'] = []
+        self.output['tasks'] = []
+        self.output['errors'] = []
         self.loadConfiguration(jsonfile)
-    
+
     def loadConfiguration(self, jsonfile):
-        jsonData=open(jsonfile).read()
+        jsonData = open(jsonfile).read()
         self.config = json.loads(jsonData)
-        self.api = TheHiveApi(self.config['api']['uri']['thehive'], self.config['api']['credentials']['key'])
+        self.api = TheHiveApi.TheHiveApi(
+            self.config['api']['uri']['thehive'], self.config['api']['credentials']['key'])
         return
 
     def execute(self, data):
@@ -26,7 +41,7 @@ class TheHiveBeeBot:
         self.observables = []
         self.observables.append(self.createObservable(data))
 
-        if(data['observable']['dataType']=='file'):
+        if(data['observable']['dataType'] == 'file'):
             data_extend = data
             data_extend['observable']['dataType'] = 'filename'
             data_extend['observable']['data'] = os.path.basename(data_extend['observable']['data'])
@@ -40,47 +55,66 @@ class TheHiveBeeBot:
 
         for observable in self.observables:
 
-            if (observable==None) or ('dataType' not in observable and 'data' not in observable and 'id' not in observable):
-                #TODO error message
+            if (observable == None) or ('dataType' not in observable and 'data' not in observable and 'id' not in observable):
+                self.output['errors'] += [
+                    {
+                        'request': {
+                            'type': 'observables_iteration', 
+                            'data': observable
+                        }, 
+                        'response': 'observable == None or a value is missing (dataType or data or id)'
+                    }
+                ]
                 break
 
-            print('-----------------')
-            print('Select analyzers for {} {}'.format(observable['dataType'], observable['id']))
-            print('-----------------')
-
-            if(observable['dataType']=='file'):
+            if(observable['dataType'] == 'file'):
                 types = self.getTypesFromFile(observable['data'])
                 analyzers = self.getAnalyzersFromTypes(types)
             else:
                 analyzers = self.getAnalyzersFromTypes([observable['dataType']])
 
+            # If analyzers are empty, a task for manual investigation is create
             if(analyzers == []):
-                #TODO error message and maybe a task to manually investigate ?
-                print('No analyzers found')
-                print('Add a task for manual investigation')
-                response = self.api.create_case_task(self.caseId, CaseTask(
+                self.output['errors'] += [
+                    {
+                        'request': {
+                            'type': 'load_analyzers', 
+                            'data': analyzers
+                        }, 
+                        'response': 'no analyzers found'
+                    }
+                ]
+                
+                # Send request to create a task
+                response = self.api.create_case_task(self.caseId, TheHiveModels.CaseTask(
                     title='Manual investigation needed',
                     status='Waiting',
                     flag=True
                 ))
+
+                # Catch responses
                 if response.status_code == 201:
-                    print('Task id : {}'.format(response.json()['id']))
+                    self.output['tasks'].append(response.json())
                 else:
-                    msgError = 'Unknown error'
-                    if('message' in response.json()):
-                        msgError = response.json()['message'].encode('utf-8')
-                    print('Error while creating task : {}'.format(msgError.replace('\n', '')))
+                    self.output['errors'] += [
+                        {
+                            'request': {
+                                'type': 'create_task', 
+                                'data': 'add a task for manual investigation'
+                            }, 
+                            'response': response.json()
+                        }
+                    ]
+
+                # Stop the execution for this observable
                 break
 
-            print('-----------------')
-            print('Create jobs for {} {}'.format(observable['dataType'], observable['id']))
-            print('-----------------')
-
-            
             for analyzer in analyzers:
-                #TODO replace all the code below with this :
-                #self.api.run_analyzer(analyzer['cortexId'],observable['id'],analyzer['id'])
-                url = "{}/api/connector/cortex/job".format(self.config['api']['uri']['thehive'])
+
+                # Send request
+                response = self.api.run_analyzer(analyzer['cortexId'],observable['id'],analyzer['id'])
+                """url = "{}/api/connector/cortex/job".format(
+                    self.config['api']['uri']['thehive'])
                 payload = {
                     'analyzerId': analyzer['id'],
                     'artifactId': observable['id'],
@@ -90,170 +124,258 @@ class TheHiveBeeBot:
                     'Authorization': "Bearer {}".format(self.config['api']['credentials']['key']),
                     'Content-Type': "application/json",
                 }
-                response = requests.request("POST", url, data=json.dumps(payload), headers=headers)
-                if(response.status_code==200):
-                    print('{} ({}) : {} {}'.format(analyzer['id'], analyzer['cortexId'], response.json()['status'], response.json()['id']))
+                response = requests.request(
+                    "POST", url, data=json.dumps(payload), headers=headers)
+                    """
+                # Catch response
+                if(response.status_code == 200):
+                    self.output['jobs-launched'].append({
+                        'analyzerId': analyzer['id'],
+                        'cortexId': analyzer['cortexId'],
+                        'status': response.json()['status'],
+                        'jobId': response.json()['id']
+                    })
                     jobsLaunched.append(response.json()['id'])
                 else:
-                    msgError = 'Unknown error'
-                    if('message' in response.json()):
-                        msgError = response.json()['message'].encode('utf-8')
-                    print('{} ({}) : {}'.format(analyzer['id'], analyzer['cortexId'], msgError.replace('\n', '')))
+                    self.output['errors'] += [
+                        {
+                            'request': {
+                                'type': 'run_analyzer', 
+                                'data': analyzer
+                            }, 
+                            'response': response.json()
+                        }
+                    ]
+                    
 
-
-        print('-----------------')
-        print('Jobs completed')
-        print('-----------------')
 
         jobsFinished = []
+        timeout = 30
         while len(jobsLaunched) != 0:
             time.sleep(2)
+            # Timeout 60sec
+            timeout -= 2
+            if(timeout <= 0):
+                break
             for job in jobsLaunched:
-                url = "{}/api/connector/cortex/job/{}".format(self.config['api']['uri']['thehive'], job)
+                url = "{}/api/connector/cortex/job/{}".format(
+                    self.config['api']['uri']['thehive'], job)
                 headers = {
                     'Authorization': "Bearer {}".format(self.config['api']['credentials']['key']),
                     'Content-Type': "application/json",
                 }
                 response = requests.request("GET", url, headers=headers)
-                if(response.status_code==200):
+                if(response.status_code == 200):
                     if(response.json()['status'] in ['Success', 'Failure']):
                         jobsFinished.append(response.json())
                         jobsLaunched.remove(job)
-                        print('Job {} {} on {} for artifact {}'.format(job, response.json()['status'], response.json()['cortexId'], response.json()['artifactId']))
+                        self.output['jobs-completed'].append(response.json())
+                        
                 else:
-                    jobsLaunched.remove(job)
-                    msgError = 'Unknown error'
-                    if('message' in response.json()):
-                        msgError = response.json()['message']
-                    print('Job {} Error : {}'.format(job, msgError))
-            
-        print('-----------------')
-        print('Analysis results')
-        print('-----------------')
+                    self.output['errors'] += [
+                        {
+                            'request': {
+                                'type': 'get_job', 
+                                'data': {'jobId' : job}
+                            }, 
+                            'response': response.json()
+                        }
+                    ]
+
+        
         # Report all the finished jobs with details
-        for job in jobsFinished:
-            print('*******')
-            print('{} on {} for artifact {}'.format(job['analyzerId'], job['cortexId'], job['artifactId']))
-            print(json.dumps(job['report']['full'], indent=4))
-            print('*******')
-            #TODO Check if there is new observable to analyze in the results
+        #for job in jobsFinished:
+            # TODO Check if there is new observable to analyze in the results
             # if yes : add new observable and launch again
 
-        print('-----------------')
-        print('End')
-        print('-----------------')
+        
         # Create a task to check and close the case
-        print('Add a task for check and close the case')
-        response = self.api.create_case_task(self.caseId, CaseTask(
+        response = self.api.create_case_task(self.caseId, TheHiveModels.CaseTask(
             title='Results checking',
             status='Waiting',
             flag=True
         ))
-        if response.status_code == 201:
-            print('Task id : {}'.format(response.json()['id']))
-        else:
-            msgError = 'Unknown error'
-            if('message' in response.json()):
-                msgError = response.json()['message'].encode('utf-8')
-            print('Error while creating task : {}'.format(msgError.replace('\n', '')))
 
-        return
+        # Catch responses
+        if response.status_code == 201:
+            self.output['tasks'].append(response.json())
+        else:
+            self.output['errors'] += [
+                {
+                    'request': {
+                        'type': 'create_task', 
+                        'data': 'add a task to check the results'
+                    }, 
+                    'response': response.json()
+                }
+            ]
+
+        # Remove the duplicates entries in 'types'
+        self.output['types'] = list(set(self.output['types']))
+
+        return self.output
 
     def selectCase(self, id):
-        print('-----------------')
-        print('Select case {}'.format(id))
-        print('-----------------')
-        url = "{}/api/case/{}".format(self.config['api']['uri']['thehive'], id)
-        headers = {
-            'Authorization': "Bearer {}".format(self.config['api']['credentials']['key']),
-            'Content-Type': "application/json",
-        }
-        response = requests.request("GET", url, headers=headers)
-        if(response.status_code==200):
-            print('case id : {}'.format(response.json()['id']))
-            print('case number : {}'.format(response.json()['caseId']))
+        """
+        Select an existing case
+        Return integer (case identifier)
+        """
+        # Request the api get an existing case
+        response = self.api.get_case(id)
+
+        # Catch response
+        if(response.status_code == 200):
+            self.output['case'] = {
+                'action': 'selection',
+                'id': response.json()['id']
+            }
         else:
-            msgError = 'Unknown error'
-            if('message' in response.json()):
-                msgError = response.json()['message']
-            print('Case not found : {}'.format(msgError))
+            # TODO log
+            self.output['errors'] += [
+                {
+                    'request': {
+                        'type': 'get_case', 
+                        'data': id
+                    }, 
+                    'response': response.json()
+                }
+            ]
             sys.exit(0)
-        return response.json()['id']
-
-
+        # Return case id
+        return self.output['case']['id']
 
     def createCase(self, data):
-        print('-----------------')
-        print('Create case')
-        print('-----------------')
-        case = Case(title=data['case']['title'], description=data['case']['description'], tlp=data['case']['tlp'], tags=data['case']['tags'])
-
-        response = self.api.create_case(case)
-        if response.status_code == 201:
-            print('case id : {}'.format(response.json()['id']))
-            print('case number : {}'.format(response.json()['caseId']))
-            id = response.json()['id']
-        else:
-            print(response.json()['message'])
+        """
+        Create a new case.
+        Return integer (case identifier).
+        """
+        # Check the structure of data
+        if('case' not in data):
+            # TODO log
             sys.exit(0)
-        return id
+        if('title' not in data['case']):
+            # TODO log
+            data['case']['title'] = ''
+        if('description' not in data['case']):
+            # TODO log
+            data['case']['description'] = ''
+        if('tlp' not in data['case']):
+            # TODO log
+            data['case']['tlp'] = None
+
+        # Create a new case model
+        case = TheHiveModels.Case(
+            title=data['case']['title'],
+            description=data['case']['description'],
+            tlp=data['case']['tlp'],
+            tags=data['case']['tags']
+        )
+
+        # Send request
+        response = self.api.create_case(case)
+
+        # Catch response
+        if response.status_code == 201:
+            self.output['case'] = {
+                'action': 'creation',
+                'id': response.json()['id']
+            }
+        else:
+            # TODO log
+            self.output['errors'] += [
+                {
+                    'request': {
+                        'type': 'create_case', 
+                        'data': data['case']
+                    }, 
+                    'response': response.json()
+                }
+            ]
+            sys.exit(0)
+
+        # Return case id
+        return self.output['case']['id']
 
     def createObservable(self, data):
-        print('-----------------')
-        print('Create observable')
-        print('-----------------')
-        print('Data type : {}'.format(data['observable']['dataType']))
-        domain = CaseObservable(dataType=data['observable']['dataType'],
-                                data=[data['observable']['data']],
-                                tlp=data['observable']['tlp'],
-                                ioc=data['observable']['ioc'],
-                                tags=data['observable']['tags'],
-                                message=data['observable']['message']
-                                )
-        response = self.api.create_case_observable(self.caseId, domain)
+        """
+        Create a new observable.
+        Return collection (observable information).
+        """
+
+        observable = None
+
+        observableModel = TheHiveModels.CaseObservable(
+            dataType=data['observable']['dataType'],
+            data=[
+                data['observable']['data']
+            ],
+            tlp=data['observable']['tlp'],
+            ioc=data['observable']['ioc'],
+            tags=data['observable']['tags'],
+            message=data['observable']['message']
+        )
+
+        # Send request
+        response = self.api.create_case_observable(self.caseId, observableModel)
+
+        # Catch response
         if response.status_code == 201:
-            print('Observable id : {}'.format(response.json()['id']))
             observable = response.json()
             observable['data'] = data['observable']['data']
-            return observable
+            self.output['observables'].append(observable)
         else:
-            print(response.json()['message'])
-            return None
-        
+            # TODO log
+            self.output['errors'] += [
+                {
+                    'request': {
+                        'type': 'create_case_observable', 
+                        'data': data['observable']
+                    }, 
+                    'response': response.json()
+                }
+            ]
+
+        # Return complete observable
+        return observable
 
     def getTypesFromFile(self, file):
+        """
+        Get the extended data types from a given file.
+        Return list (extended data types).
+        """
         # Initalize the type list
         types = []
         # Retrieve the file information
         file_info = magic.from_file(file)
-        print('File info result : {}'.format(file_info))
+
         # Match the file information with routes
         for route in self.config['routing']:
             for regex in route['regex']:
                 test = re.compile(regex)
                 if(test.search(file_info)):
                     # If there is a match, add the type to the return var
-                    print('Type found : {}'.format(', '.join(route['type'])))
                     types += route['type']
         # Remove the duplicate type
         types = list(set(types))
         return types
 
     def getAnalyzersFromTypes(self, types):
+        """
+        Get the analyzers from list of data types
+        Return list (analyzers information : {id, scope, cortexId})
+        """
         # New way to do it :
         analyzers = []
         # For each type previously found get the analyzers with the correct scope
         for analyzer in self.config['analyzers']:
             for type in types:
+                self.output['types'].append(type)
                 if(type in analyzer['type'] and analyzer['scope'] in self.analyzerScopes):
                     analyzers += [{
                         'id': analyzer['id'],
                         'scope': analyzer['scope'],
                         'cortexId': analyzer['cortexId']
                     }]
-                    print('Load {} ({}) on {}'.format(analyzer['id'], analyzer['scope'], analyzer['cortexId']))
         # Remove the duplicates
         analyzers = map(dict, set(tuple(sorted(d.items())) for d in analyzers))
         return analyzers
-
-

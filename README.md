@@ -21,15 +21,51 @@ Launch `setup.py`
 python setup.py install
 ```
 
-Open `thehivebeebot.json` and replace the value of `api.uri.thehive` and `api.credentials.key`
+Open `config.json` and replace the value of `api.uri.thehive` and `api.credentials.key`
 
-Then execute `thehivebeebot.py`
+Then execute `app.py`
 
 ```bash
-python thehivebeebot.py
+python app.py -H 0.0.0.0 -p 9898
 ```
 
-Go into your The Hive platform and check if a new case has been created. If not, you can refer to the output of `thehivebeebot.py`
+Server is now running on port 9898, you can send a submit query :
+
+```bash
+curl -X POST \
+  http://127.0.0.1:9898/submit \
+  -H 'Content-Type: application/json' \
+  -d '
+{
+  "case": {
+    "description": "-- test --",
+    "tags": [
+      "test"
+    ],
+    "title": "-- test --",
+    "tlp": null
+  },
+  "jobs": {
+    "scopes": [
+      "local",
+      "ext"
+    ]
+  },
+  "observable": {
+    "data": "./test.png",
+    "dataType": "file",
+    "ioc": true,
+    "message": "test",
+    "tags": [
+      "test"
+    ],
+    "tlp": 2
+  }
+}
+'
+```
+
+Go into your The Hive platform and check if a new case has been created. If not, you can refer to the errors in the response.
 
 ## Requirements
 
@@ -41,6 +77,8 @@ Python libraries (available via PIP) :
 - future (`pip install future`)
 - requests (`pip install requests`)
 - thehive4py (`pip install thehive4py`)
+- flask (`pip install flask`)
+- argparse (`pip install argparse`)
 
 ## Installation
 
@@ -51,7 +89,7 @@ python setup.py install
 
 ## Configuration
 
-Open `thehivebeebot.json` and replace the value of `api.uri.thehive` and `api.credentials.key`
+Open `config.json` and replace the value of `api.uri.thehive` and `api.credentials.key`
 
 ### Matching rules
 
@@ -99,6 +137,52 @@ Once you've made your routing, you can fulfill the `analyzers` fields. In this s
 
 ## Usage
 
+### API
+
+Execute `app.py`
+
+```bash
+python app.py -H 0.0.0.0 -p 9898
+```
+
+Server is now running on port 9898, you can send a submit query :
+
+```bash
+curl -X POST \
+  http://127.0.0.1:9898/submit \
+  -H 'Content-Type: application/json' \
+  -d '
+{
+  "case": {
+    "description": "-- test --",
+    "tags": [
+      "test"
+    ],
+    "title": "-- test --",
+    "tlp": null
+  },
+  "jobs": {
+    "scopes": [
+      "local",
+      "ext"
+    ]
+  },
+  "observable": {
+    "data": "./test.png",
+    "dataType": "file",
+    "ioc": true,
+    "message": "test",
+    "tags": [
+      "test"
+    ],
+    "tlp": 2
+  }
+}
+'
+```
+
+### Script
+
 First, import the library
 
 ```python
@@ -108,10 +192,10 @@ from thehivebeebot.core import TheHiveBeeBot
 Then load your configuration
 
 ```python
-beebot = TheHiveBeeBot('thehivebeebot.json')
+beebot = TheHiveBeeBot('config.json')
 ```
 
-### Add observable to a new case
+Add observable to a new case
 
 ```python
 beebot.execute({
@@ -138,7 +222,7 @@ beebot.execute({
 })
 ```
 
-### Add observable to an existing case
+Or add observable to an existing case
 
 ```python
 beebot.execute({

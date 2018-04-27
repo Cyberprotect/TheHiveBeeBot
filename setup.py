@@ -5,7 +5,7 @@ from setuptools import setup
 
 setup(
     name='thehivebeebot',
-    version='1.0.0',
+    version='1.1.0',
     description='The Hive automation of Cortex analysis program.',
     long_description='',
     author='Rémi ALLAIN',
@@ -27,5 +27,5 @@ setup(
         'Topic :: Software Development :: Libraries :: Python Modules'
     ],
     include_package_data=True,
-    install_requires=['future', 'requests', 'python-magic', 'thehive4py']
+    install_requires=['future', 'requests', 'python-magic', 'thehive4py', 'argparse', 'flask']
 )
